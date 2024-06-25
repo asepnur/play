@@ -1,16 +1,23 @@
 package main
 
 import (
+	"embed"
 	"flag"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"log"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/golang/freetype"
 )
+
+// Embed the font file into the binary.
+//go:embed Roboto-Regular.ttf
+var fontFile embed.FS
 
 // GenerateProfilePicture generates a profile picture with the first letter of the name.
 func GenerateProfilePicture(name string, outputPath string) error {
@@ -21,13 +28,13 @@ func GenerateProfilePicture(name string, outputPath string) error {
 		dpi       = 72
 	)
 
-	// Create a new blank image with a white background.
+	// Create a new blank image with a random background color.
 	img := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
-	bgColor := color.RGBA{R: 255, G: 255, B: 255, A: 255} // White background
+	bgColor := randomColor()
 	draw.Draw(img, img.Bounds(), &image.Uniform{bgColor}, image.Point{}, draw.Src)
 
 	// Load the font.
-	fontBytes, err := os.ReadFile("./Roboto-Regular.ttf")
+	fontBytes, err := fontFile.ReadFile("Roboto-Regular.ttf")
 	if err != nil {
 		return err
 	}
@@ -43,7 +50,7 @@ func GenerateProfilePicture(name string, outputPath string) error {
 	c.SetFontSize(fontSize)
 	c.SetClip(img.Bounds())
 	c.SetDst(img)
-	c.SetSrc(image.Black)
+	c.SetSrc(image.White) // Set text color to white for better contrast
 
 	// Calculate the position to center the text.
 	firstLetter := string(name[0])
@@ -62,6 +69,17 @@ func GenerateProfilePicture(name string, outputPath string) error {
 	defer outFile.Close()
 
 	return jpeg.Encode(outFile, img, nil)
+}
+
+// randomColor generates a random color.
+func randomColor() color.RGBA {
+	rand.Seed(time.Now().UnixNano())
+	return color.RGBA{
+		R: uint8(rand.Intn(256)),
+		G: uint8(rand.Intn(256)),
+		B: uint8(rand.Intn(256)),
+		A: 255,
+	}
 }
 
 func main() {
