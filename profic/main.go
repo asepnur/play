@@ -2,102 +2,81 @@ package main
 
 import (
 	"fmt"
-	"image"
-	"image/color"
-	"image/draw"
-	"image/png"
-	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
 
-	"github.com/golang/freetype"
-	"github.com/golang/freetype/truetype"
+	"github.com/fogleman/gg"
 )
 
 const (
-	imgWidth  = 461
-	imgHeight = 461
-	fontPath  = "./Inter-ExtraBold.ttf"
-	outputDir = "./output"
+	width    = 461
+	height   = 461
+	fontPath = "./Inter-ExtraBold.ttf"
+	fontSize = 150
 )
 
-var (
-	fontColorModel1_2Letters = color.RGBA{177, 78, 198, 255}  // #B14EC6
-	bgColorModel1_2Letters   = color.RGBA{249, 227, 255, 255} // #F9E3FF
-	fontColorModel2_2Letters = color.RGBA{80, 78, 198, 255}   // #504EC6
-	bgColorModel2_2Letters   = color.RGBA{228, 227, 255, 255} // #E4E3FF
+// generateImage generates an image with given text, font color, and background color
+func generateImage(text, fontColor, bgColor, model, outputDir string) error {
+	dc := gg.NewContext(width, height)
 
-	fontColorModel1_1Letter = color.RGBA{177, 78, 198, 255}  // #B14EC6
-	bgColorModel1_1Letter   = color.RGBA{249, 227, 255, 255} // #F9E3FF
-	fontColorModel2_1Letter = color.RGBA{80, 78, 198, 255}   // #504EC6
-	bgColorModel2_1Letter   = color.RGBA{228, 227, 255, 255} // #E4E3FF
-)
+	// Set background color
+	bgR, bgG, bgB, bgA := hexToRGBA(bgColor)
+	dc.SetRGBA(bgR, bgG, bgB, bgA)
+	dc.Clear()
+
+	// Load font
+	if err := dc.LoadFontFace(fontPath, fontSize); err != nil {
+		return fmt.Errorf("could not load font: %v", err)
+	}
+
+	// Calculate position to center the text
+	dc.SetHexColor(fontColor)
+	dc.DrawStringAnchored(text, width/2, height/2, 0.5, 0.5)
+
+	// Save the image
+	outputPath := fmt.Sprintf("%s/%s_%s.png", outputDir, text, model)
+	return dc.SavePNG(outputPath)
+}
+
+// hexToRGBA converts hex color to RGBA components
+func hexToRGBA(hex string) (float64, float64, float64, float64) {
+	var r, g, b int
+	fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b)
+	return float64(r) / 255, float64(g) / 255, float64(b) / 255, 1.0
+}
 
 func main() {
-	// Load the font
-	fontBytes, err := ioutil.ReadFile(fontPath)
-	if err != nil {
-		log.Fatalf("Failed to load font: %v", err)
+	upperAlphanumeric := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	models := []struct {
+		fontColor string
+		bgColor   string
+		modelName string
+	}{
+		{"#B14EC6", "#F9E3FF", "model_1"},
+		{"#504EC6", "#E4E3FF", "model_2"},
 	}
 
-	f, err := freetype.ParseFont(fontBytes)
-	if err != nil {
-		log.Fatalf("Failed to parse font: %v", err)
+	outputDir := "./output"
+	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+		log.Fatalf("could not create output directory: %v", err)
 	}
 
-	alphanumericSet := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-
-	// Create output directories
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		log.Fatalf("Failed to create output directory: %v", err)
-	}
-
-	// Generate images for 2-letter combinations
-	for _, c1 := range alphanumericSet {
-		for _, c2 := range alphanumericSet {
-			text := string(c1) + string(c2)
-			generateImage(f, text, fontColorModel1_2Letters, bgColorModel1_2Letters, filepath.Join(outputDir, fmt.Sprintf("%s_model_1_2_letters.png", text)))
-			generateImage(f, text, fontColorModel2_2Letters, bgColorModel2_2Letters, filepath.Join(outputDir, fmt.Sprintf("%s_model_2_2_letters.png", text)))
+	for _, model := range models {
+		for _, char1 := range upperAlphanumeric {
+			// Generate for single character
+			text := string(char1)
+			if err := generateImage(text, model.fontColor, model.bgColor, model.modelName, outputDir); err != nil {
+				log.Printf("could not generate image for %s: %v", text, err)
+			}
+			for _, char2 := range upperAlphanumeric {
+				// Generate for two characters
+				text = string(char1) + string(char2)
+				if err := generateImage(text, model.fontColor, model.bgColor, model.modelName, outputDir); err != nil {
+					log.Printf("could not generate image for %s: %v", text, err)
+				}
+			}
 		}
 	}
 
-	// Generate images for 1-letter combinations
-	for _, c := range alphanumericSet {
-		text := string(c)
-		generateImage(f, text, fontColorModel1_1Letter, bgColorModel1_1Letter, filepath.Join(outputDir, fmt.Sprintf("%s_model_1_1_letter.png", text)))
-		generateImage(f, text, fontColorModel2_1Letter, bgColorModel2_1Letter, filepath.Join(outputDir, fmt.Sprintf("%s_model_2_1_letter.png", text)))
-	}
-}
-
-func generateImage(f *truetype.Font, text string, fontColor, bgColor color.Color, outputPath string) {
-	img := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
-	draw.Draw(img, img.Bounds(), &image.Uniform{bgColor}, image.Point{}, draw.Src)
-
-	c := freetype.NewContext()
-	c.SetDPI(72)
-	c.SetFont(f)
-	c.SetFontSize(220)
-	c.SetClip(img.Bounds())
-	c.SetDst(img)
-	c.SetSrc(&image.Uniform{fontColor})
-
-	pt := freetype.Pt(imgWidth/4, imgHeight/2+110) // Adjust as necessary to center text
-	_, err := c.DrawString(text, pt)
-	if err != nil {
-		log.Fatalf("Failed to draw string: %v", err)
-	}
-
-	// Save the image
-	file, err := os.Create(outputPath)
-	if err != nil {
-		log.Fatalf("Failed to create image file: %v", err)
-	}
-	defer file.Close()
-
-	if err := png.Encode(file, img); err != nil {
-		log.Fatalf("Failed to encode image to PNG: %v", err)
-	}
-
-	fmt.Printf("Generated %s\n", outputPath)
+	log.Println("Profile picture generation completed.")
 }
