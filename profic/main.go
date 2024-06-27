@@ -46,7 +46,7 @@ func hexToRGBA(hex string) (float64, float64, float64, float64) {
 }
 
 func main() {
-	upperAlphanumeric := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	upperAlphanumeric := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	models := []struct {
 		fontColor string
 		bgColor   string
