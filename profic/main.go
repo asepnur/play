@@ -11,6 +11,7 @@ import (
 const (
 	width    = 461
 	height   = 461
+	radius   = 230.5 // Half of width or height for full roundness
 	fontPath = "./Inter-ExtraBold.ttf"
 	fontSize = 150
 )
@@ -22,7 +23,8 @@ func generateImage(text, fontColor, bgColor, model, outputDir string) error {
 	// Set background color
 	bgR, bgG, bgB, bgA := hexToRGBA(bgColor)
 	dc.SetRGBA(bgR, bgG, bgB, bgA)
-	dc.Clear()
+	dc.DrawRoundedRectangle(0, 0, width, height, radius)
+	dc.Fill()
 
 	// Load font
 	if err := dc.LoadFontFace(fontPath, fontSize); err != nil {
@@ -34,7 +36,7 @@ func generateImage(text, fontColor, bgColor, model, outputDir string) error {
 	dc.DrawStringAnchored(text, width/2, height/2, 0.5, 0.5)
 
 	// Save the image
-	outputPath := fmt.Sprintf("%s/%s_%s.png", outputDir, text, model)
+	outputPath := fmt.Sprintf("%s/%s_%s.jpg", outputDir, text, model)
 	return dc.SavePNG(outputPath)
 }
 
